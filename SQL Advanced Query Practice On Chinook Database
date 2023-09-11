@@ -1,0 +1,135 @@
+
+#Questions for SQL queries on Chinook Database 
+#1. Find the customer who spent the most money at the store. Include their name, email, and the total amount spent.
+
+SELECT c.FirstName, c.LastName, c.Email, SUM(il.UnitPrice*il.Quantity) AS TOTAL_Amount_Spent
+FROM Customer AS c
+JOIN Invoice AS i
+ON c.customerId=i.customerId
+JOIN InvoiceLine as il 
+On il.InvoiceId = i.InvoiceId
+GROUP BY c.customerId
+ORDER BY TOTAL_Amount_Spent DESC;
+
+
+#2.	List all tracks that have been purchased at least once, along with their album and artist information.
+
+
+SELECT t.Name AS TrackName, a.Title AS Album , ar.Name AS Artist
+FROM Track AS t
+JOIN Album AS a 
+ON a.AlbumId = t.AlbumId
+JOIN Artist AS ar 
+ON ar.ArtistId = a.ArtistId
+WHERE TrackId IN(SELECT DISTINCT TrackId FROM InvoiceLine);
+
+#3. Find the total number of unique tracks in each genre. List the genre name and the count of tracks.
+
+SELECT g.Name AS Genre, COUNT(t.TrackId) AS Count_of_tracks
+FROM Track AS t
+JOIN Genre AS g ON 
+t.GenreId = g.GenreId
+GROUP BY g.Name
+HAVING COUNT(DISTINCT TrackId) ;
+
+#4. Identify the employee who has assisted in the most sales. Include their name and the total number of sales they've assisted with.
+
+SELECT e.EmployeeId, e.FirstName, e.LastName, COUNT(i.InvoiceId) AS Total_Number_Of_Sales
+FROM Employee AS e
+JOIN Customer AS c
+ON e.EmployeeId=c.SupportRepId
+JOIN Invoice AS i
+ON c.CustomerId = i.CustomerId
+GROUP BY EmployeeId
+ORDER BY Total_Number_Of_Sales DESC;
+
+#5.List all customers who have made more than one purchase in a single day. Include the customer name, purchase date, and the number of purchases made on that day.
+
+SELECT c.FirstName,c.LastName,i.InvoiceDate AS PurchaseDate,COUNT(i.InvoiceId) AS Total_Number_Of_Purchases
+FROM Customer AS c
+JOIN Invoice AS i 
+ON c.CustomerId = i.CustomerId
+GROUP BY c.customerId, i.InvoiceDate
+HAVING COUNT(i.InvoiceId) > 1
+ORDER BY c.LastName, c.FirstName, PurchaseDate
+
+#6. Find the top-selling genre for each country. Include the country name, genre name, and the total number of tracks sold in that genre.
+
+SELECT i.BillingCountry AS Country, g.Name AS GenreName, COUNT (t.TrackId) AS Total_Number_Of_Tracks
+FROM Invoice AS i
+JOIN InvoiceLine AS il 
+ON i.InvoiceId = il.InvoiceId
+LEFT JOIN Track As t
+ON t.trackId = il.TrackId
+JOIN Genre AS g
+ON g.GenreId = t.GenreId
+WHERE t.TrackId IN(SELECT TrackId FROM InvoiceLine)
+GROUP BY Country, GenreName
+ORDER BY Total_Number_Of_Tracks DESC;
+
+
+#7. List all albums that have more than 15 tracks. Include the album name and the number of tracks in each album.
+
+SELECT a.AlbumId, a.Title, COUNT(t.TrackId) AS The_Number_OF_Tracks
+FROM Album AS a
+JOIN Track AS t 
+ON a.AlbumId = t.AlbumId
+GROUP BY AlbumId
+HAVING COUNT (t.TrackId)>15;
+
+
+#8. Identify the most popular artist based on the number of times their tracks have been purchased. List the artist name and the total number of track purchases.
+
+SELECT ar.Name AS Artist_Name, COUNT(il.TrackId) As The_Number_Of_Track_Purchases
+FROM Artist AS ar
+JOIN Album AS a 
+ON ar.ArtistId = a.ArtistId
+JOIN Track AS t 
+ON t.AlbumId = a.AlbumId
+JOIN InvoiceLine AS il 
+ON t.TrackId = il.TrackId 
+GROUP BY Artist_Name
+ORDER BY The_Number_Of_Track_Purchases DESC;
+
+
+
+#9.	Calculate the average time between consecutive purchases for each customer. Include the customer name and the average time in days.
+
+WITH CustomerPreviousPurchases AS (
+SELECT c.FirstName,c.LastName,i.CustomerId,i.InvoiceDate, LAG(i.InvoiceDate, 1, 0) OVER (PARTITION BY i.CustomerId ORDER BY i.InvoiceDate) AS PreviousPurchaseDate
+FROM Customer AS c
+JOIN Invoice AS i ON c.CustomerId = i.CustomerId
+)
+SELECT CustomerId,FirstName,LastName,
+AVG(DATEDIFF(InvoiceDate, PreviousPurchaseDate)) AS Average_Time_Between_Purchases
+FROM CustomerPreviousPurchases
+WHERE PreviousPurchaseDate IS NOT NULL
+GROUP BY CustomerId, FirstName, LastName;
+
+
+#10.List all customers who have not made a purchase at the store.
+
+SELECT c.FirstName, c.LastName, i.InvoiceId 
+FROM Customer AS c
+LEFT JOIN Invoice AS i ON c.CustomerId = i.CustomerId 
+WHERE i.InvoiceId IS NULL;
+
+
+#11.Find the track that has been purchased the most number of times. Include the track name, artist name, and the number of purchases.
+
+SELECT t.TrackId, t.Name AS Track_Name, ar.Name AS Artist_Name, COUNT(il.TrackId) AS The_Number_Of_Track_Purchases
+FROM Artist AS ar
+JOIN Album 
+ON Album.ArtistId = ar.ArtistId 
+JOIN Track AS t
+ON t.AlbumId = Album.AlbumId 
+JOIN InvoiceLine AS il 
+ON t.TrackId = il.TrackId
+GROUP BY t.TrackId
+ORDER BY The_Number_Of_Track_Purchases DESC;
+
+
+#12.	Calculate the total revenue for each year. Include the year and the total revenue for that year.
+SELECT DATE_FORMAT(InvoiceDate, "%Y") AS Revenue_Year, SUM(Total) AS Total_Revenue
+FROM Invoice
+GROUP BY Revenue_Year;
